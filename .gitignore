@@ -1,1 +1,5 @@
-modelo_catmat/
+venv/
+.venv/
+__pycache__/
+*.pyc
+modelo_retrieval/
