@@ -4,21 +4,21 @@ from datasets import Dataset
 from sentence_transformers import SentenceTransformer, SentenceTransformerTrainer, SentenceTransformerTrainingArguments
 from sentence_transformers.losses import CachedMultipleNegativesRankingLoss
 
-DATASET_DIR  = os.path.join(os.path.dirname(__file__), "..", "dataset")
-MODEL_IN     = os.path.join(os.path.dirname(__file__), "..", "modelo_retrieval")   # continua do modelo atual
-MODEL_OUT    = os.path.join(os.path.dirname(__file__), "..", "modelo_retrieval")
-BASE_MODEL   = "BAAI/bge-m3"
+DATASET_DIR = os.path.join(os.path.dirname(__file__), "..", "dataset")
+MODEL_IN = os.path.join(os.path.dirname(__file__), "..", "modelo_retrieval")   
+MODEL_OUT = os.path.join(os.path.dirname(__file__), "..", "modelo_retrieval")
+BASE_MODEL = "BAAI/bge-m3"
 
-BATCH_SIZE   = 256   # batch efetivo — GradCache faz o forward em MINI_BATCH de cada vez
-MINI_BATCH   = 32    # tamanho real do forward pass (mesma VRAM que antes)
-EPOCHS       = 5     # mais épocas; inicia do modelo atual que já tem conhecimento
+BATCH_SIZE = 256        # batch efetivo 
+MINI_BATCH = 32         # tamanho real do forward pass
+EPOCHS = 5              # mais épocas
 WARMUP_STEPS = 0.06
-LR           = 5e-6  # lr menor: fine-tuning a partir de modelo já treinado
-MAX_SEQ_LEN  = 256
+LR = 5e-6               # lr menor: fine-tuning a partir de modelo já treinado
+MAX_SEQ_LEN = 256
 
 
 def main():
-    # carrega dataset — prefere triplas com hard negatives se disponível
+    # carrega dataset: prefere triplas com hard negatives se disponível
     neg_path = os.path.join(DATASET_DIR, "negativos.csv.gz")
     if os.path.exists(neg_path):
         df = pd.read_csv(neg_path)
@@ -40,15 +40,13 @@ def main():
             "positive": df["texto_ncm"].tolist(),
         })
 
-    # inicia do modelo atual (já fine-tunado) — preserva conhecimento acumulado
+    # inicia do modelo atual (já fine-tunado) 
     model_path = MODEL_IN if os.path.isdir(MODEL_IN) else BASE_MODEL
     print(f"Carregando modelo base de: {model_path}")
     model = SentenceTransformer(model_path, model_kwargs={"torch_dtype": "bfloat16"})
     model.max_seq_length = MAX_SEQ_LEN
 
     # CachedMultipleNegativesRankingLoss = GradCache
-    # mini_batch_size controla memória do forward; batch efetivo = per_device_train_batch_size
-    # resultado: 255 negativos por step com mesma VRAM de batch=32
     loss = CachedMultipleNegativesRankingLoss(model, mini_batch_size=MINI_BATCH)
 
     total_steps = (len(train_dataset) // BATCH_SIZE) * EPOCHS
@@ -67,7 +65,7 @@ def main():
         optim="adamw_bnb_8bit",
         save_strategy="epoch",
         logging_steps=50,
-        dataloader_drop_last=True,   # evita batch menor que MINI_BATCH no fim da época
+        dataloader_drop_last=True, # evita batch menor que MINI_BATCH no fim da época
     )
 
     print("\n--- INICIANDO TREINO ---")
